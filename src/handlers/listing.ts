@@ -162,6 +162,62 @@ export const tools = [
       required: ["listing_id", "products"],
     },
   },
+  {
+    name: "findAllActiveListings",
+    description:
+      "Public Etsy search across all shops. Filter by keywords, price, taxonomy, location. Used for competitor monitoring and market research.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        keywords: { type: "string" },
+        sort_on: { type: "string", enum: ["created", "price", "score"] },
+        sort_order: { type: "string", enum: ["asc", "desc", "ascending", "descending", "up", "down"] },
+        limit: { type: "number" },
+        offset: { type: "number" },
+        min_price: { type: "number" },
+        max_price: { type: "number" },
+        taxonomy_id: { type: "number" },
+        shop_location: { type: "string" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "getListingsBatch",
+    description: "Bulk-fetch listings by IDs (comma-separated, max 100).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        listing_ids: { type: "array", items: { type: "string" }, description: "Up to 100 listing IDs" },
+        includes: { type: "array", items: { type: "string" }, description: "e.g. Images, Inventory, Shipping, Translations" },
+      },
+      required: ["listing_ids"],
+    },
+  },
+  {
+    name: "getListing",
+    description: "Fetch a single listing by ID with optional includes (Images, Inventory, etc.).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        listing_id: { type: "string" },
+        includes: { type: "array", items: { type: "string" } },
+      },
+      required: ["listing_id"],
+    },
+  },
+  {
+    name: "getListingProperty",
+    description: "Fetch a single listing property (e.g. material, size, color) by listing + property id.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        listing_id: { type: "string" },
+        property_id: { type: "string" },
+      },
+      required: ["listing_id", "property_id"],
+    },
+  },
 ];
 
 interface GetListingsByShopArgs {
@@ -213,6 +269,33 @@ interface UpdateListingInventoryArgs {
   products: unknown[];
 }
 
+interface FindAllActiveListingsArgs {
+  keywords?: string;
+  sort_on?: string;
+  sort_order?: string;
+  limit?: number;
+  offset?: number;
+  min_price?: number;
+  max_price?: number;
+  taxonomy_id?: number;
+  shop_location?: string;
+}
+
+interface GetListingsBatchArgs {
+  listing_ids: string[];
+  includes?: string[];
+}
+
+interface GetListingArgs {
+  listing_id: string;
+  includes?: string[];
+}
+
+interface GetListingPropertyArgs {
+  listing_id: string;
+  property_id: string;
+}
+
 export const handlers: Record<string, (args: unknown, axios: AxiosInstance) => Promise<unknown>> = {
   getListingsByShop: async (args, axios) =>
     axios.get(`/application/shops/${(args as GetListingsByShopArgs).shop_id}/listings`, {
@@ -261,5 +344,44 @@ export const handlers: Record<string, (args: unknown, axios: AxiosInstance) => P
     return axios.put(`/application/listings/${listing_id}/inventory`, {
       products,
     });
+  },
+
+  findAllActiveListings: async (args, axios) => {
+    const a = args as FindAllActiveListingsArgs;
+    return axios.get(`/application/listings/active`, {
+      params: {
+        keywords: a.keywords,
+        sort_on: a.sort_on,
+        sort_order: a.sort_order,
+        limit: a.limit,
+        offset: a.offset,
+        min_price: a.min_price,
+        max_price: a.max_price,
+        taxonomy_id: a.taxonomy_id,
+        shop_location: a.shop_location,
+      },
+    });
+  },
+
+  getListingsBatch: async (args, axios) => {
+    const a = args as GetListingsBatchArgs;
+    return axios.get(`/application/listings/batch`, {
+      params: {
+        listing_ids: a.listing_ids.join(","),
+        includes: a.includes ? a.includes.join(",") : undefined,
+      },
+    });
+  },
+
+  getListing: async (args, axios) => {
+    const a = args as GetListingArgs;
+    return axios.get(`/application/listings/${a.listing_id}`, {
+      params: { includes: a.includes ? a.includes.join(",") : undefined },
+    });
+  },
+
+  getListingProperty: async (args, axios) => {
+    const a = args as GetListingPropertyArgs;
+    return axios.get(`/application/listings/${a.listing_id}/properties/${a.property_id}`);
   },
 };

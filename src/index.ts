@@ -20,6 +20,12 @@ import {
   handlers as transactionsHandlers,
 } from "./handlers/transactions.js";
 import { tools as ledgerTools, handlers as ledgerHandlers } from "./handlers/ledger.js";
+import { tools as reviewsTools, handlers as reviewsHandlers } from "./handlers/reviews.js";
+import {
+  tools as returnPoliciesTools,
+  handlers as returnPoliciesHandlers,
+} from "./handlers/return-policies.js";
+import { tools as scopesTools, handlers as scopesHandlers } from "./handlers/scopes.js";
 import { loadEtsyConfig } from "./config.js";
 
 const { apiKey: API_KEY, sharedSecret: SHARED_SECRET, refreshToken: REFRESH_TOKEN } = loadEtsyConfig();
@@ -93,6 +99,9 @@ class EtsyServer {
       ...receiptsTools,
       ...transactionsTools,
       ...ledgerTools,
+      ...reviewsTools,
+      ...returnPoliciesTools,
+      ...scopesTools,
     ];
     const handlers = {
       ...shopHandlers,
@@ -101,6 +110,9 @@ class EtsyServer {
       ...receiptsHandlers,
       ...transactionsHandlers,
       ...ledgerHandlers,
+      ...reviewsHandlers,
+      ...returnPoliciesHandlers,
+      ...scopesHandlers,
     } as Record<string, (args: unknown, axios: AxiosInstance) => Promise<unknown>>;
 
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({

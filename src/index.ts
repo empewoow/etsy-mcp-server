@@ -14,9 +14,15 @@ import {
   tools as sellerTaxonomyTools,
   handlers as sellerTaxonomyHandlers,
 } from "./handlers/seller-taxonomy.js";
+import { tools as receiptsTools, handlers as receiptsHandlers } from "./handlers/receipts.js";
+import {
+  tools as transactionsTools,
+  handlers as transactionsHandlers,
+} from "./handlers/transactions.js";
+import { tools as ledgerTools, handlers as ledgerHandlers } from "./handlers/ledger.js";
 import { loadEtsyConfig } from "./config.js";
 
-const { apiKey: API_KEY, refreshToken: REFRESH_TOKEN } = loadEtsyConfig();
+const { apiKey: API_KEY, sharedSecret: SHARED_SECRET, refreshToken: REFRESH_TOKEN } = loadEtsyConfig();
 
 class EtsyServer {
   private server: Server;
@@ -59,7 +65,7 @@ class EtsyServer {
       });
       this.accessToken = response.data.access_token;
       this.axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${this.accessToken}`;
-      this.axiosInstance.defaults.headers.common["x-api-key"] = API_KEY as string;
+      this.axiosInstance.defaults.headers.common["x-api-key"] = `${API_KEY}:${SHARED_SECRET}`;
     } catch (error: unknown) {
       console.error(
         "Error refreshing access token:",
@@ -80,11 +86,21 @@ class EtsyServer {
   }
 
   private setupToolHandlers() {
-    const allTools = [...shopTools, ...listingTools, ...sellerTaxonomyTools];
+    const allTools = [
+      ...shopTools,
+      ...listingTools,
+      ...sellerTaxonomyTools,
+      ...receiptsTools,
+      ...transactionsTools,
+      ...ledgerTools,
+    ];
     const handlers = {
       ...shopHandlers,
       ...listingHandlers,
       ...sellerTaxonomyHandlers,
+      ...receiptsHandlers,
+      ...transactionsHandlers,
+      ...ledgerHandlers,
     } as Record<string, (args: unknown, axios: AxiosInstance) => Promise<unknown>>;
 
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({

@@ -3,6 +3,7 @@ import querystring from "querystring";
 import fs from "fs";
 import FormData from "form-data";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import { requireLiveWrites } from "../lib/write-guard.js";
 
 export const tools = [
   {
@@ -303,6 +304,7 @@ export const handlers: Record<string, (args: unknown, axios: AxiosInstance) => P
     }),
 
   createDraftListing: async (args, axios) => {
+    requireLiveWrites();
     const { shop_id, ...rest } = args as CreateDraftListingArgs;
     const payload = querystring.stringify(rest as Record<string, string | number | boolean>);
     return axios.post(`/application/shops/${shop_id}/listings`, payload, {
@@ -311,6 +313,7 @@ export const handlers: Record<string, (args: unknown, axios: AxiosInstance) => P
   },
 
   uploadListingImage: async (args, axios) => {
+    requireLiveWrites();
     const { shop_id, listing_id, image_path } = args as UploadListingImageArgs;
     if (!fs.existsSync(image_path)) {
       throw new McpError(ErrorCode.InvalidRequest, `File not found: ${image_path}`);
@@ -323,6 +326,7 @@ export const handlers: Record<string, (args: unknown, axios: AxiosInstance) => P
   },
 
   updateListing: async (args, axios) => {
+    requireLiveWrites();
     const { shop_id, listing_id, ...rest } = args as UpdateListingArgs;
     const payload = querystring.stringify(rest as Record<string, string | number | boolean>);
     return axios.put(`/application/shops/${shop_id}/listings/${listing_id}`, payload, {
@@ -340,6 +344,7 @@ export const handlers: Record<string, (args: unknown, axios: AxiosInstance) => P
     axios.get(`/application/listings/${(args as GetListingInventoryArgs).listing_id}/inventory`),
 
   updateListingInventory: async (args, axios) => {
+    requireLiveWrites();
     const { listing_id, products } = args as UpdateListingInventoryArgs;
     return axios.put(`/application/listings/${listing_id}/inventory`, {
       products,

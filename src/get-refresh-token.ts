@@ -156,14 +156,21 @@ const main = async () => {
 
   (app.locals as AppLocals).codeVerifier = codeVerifier;
 
-  const scopes = [
-    "listings_r",
-    "listings_w",
-    "shops_r",
-    "shops_w",
-    "transactions_r",
-    "transactions_w",
-  ].join(" ");
+  // Read-only by default. A token that lacks the _w scopes cannot write to Etsy at
+  // all, regardless of what this server or its caller tries to do — the refusal
+  // happens at Etsy's end. That is a stronger guarantee than the write-guard, which
+  // only stops this process. Opt in to write scopes with ETSY_REQUEST_WRITE_SCOPES=true.
+  const readScopes = ["listings_r", "shops_r", "transactions_r"];
+  const writeScopes = ["listings_w", "shops_w", "transactions_w"];
+  const wantWrites = process.env.ETSY_REQUEST_WRITE_SCOPES === "true";
+  const scopes = (wantWrites ? [...readScopes, ...writeScopes] : readScopes).join(" ");
+
+  console.log(
+    wantWrites
+      ? "Requesting READ+WRITE scopes (ETSY_REQUEST_WRITE_SCOPES=true)."
+      : "Requesting READ-ONLY scopes. Set ETSY_REQUEST_WRITE_SCOPES=true if you need writes."
+  );
+  console.log(`Scopes: ${scopes}`);
 
   // Etsy requires a unique `state` param in the authorization request.
   const state = Math.random().toString(36).substring(2, 15);

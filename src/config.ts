@@ -18,7 +18,12 @@ export function loadEtsyConfig(): EtsyConfig {
   if (!apiKey || !sharedSecret || !refreshToken) {
     try {
       const __dirname = path.dirname(fileURLToPath(import.meta.url));
-      const settingsPath = path.join(__dirname, "..", "etsy_mcp_settings.json");
+      // ETSY_SETTINGS_PATH lets the test suite point at a throwaway file instead of
+      // the real one. Without it, tests that assert "no settings file present" have
+      // to delete the user's actual credentials to pass.
+      const settingsPath = process.env.ETSY_SETTINGS_PATH
+        ? path.resolve(process.env.ETSY_SETTINGS_PATH)
+        : path.join(__dirname, "..", "etsy_mcp_settings.json");
       if (fs.existsSync(settingsPath)) {
         const raw = fs.readFileSync(settingsPath, "utf-8");
         const cfg = JSON.parse(raw)["etsy-mcp-server"] ?? {};
@@ -26,9 +31,6 @@ export function loadEtsyConfig(): EtsyConfig {
         apiKey = apiKey || cfg.keystring;
         sharedSecret = sharedSecret || cfg.sharedSecret;
         refreshToken = refreshToken || cfg.refreshToken;
-        if (process.env.NODE_ENV === "test") {
-          fs.unlinkSync(settingsPath);
-        }
       }
     } catch {
       // The file is optional – ignore if it is missing or malformed

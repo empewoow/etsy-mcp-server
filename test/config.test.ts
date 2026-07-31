@@ -5,7 +5,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { loadEtsyConfig } from '../src/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const settingsPath = path.join(__dirname, '..', 'etsy_mcp_settings.json');
+
+// Point loadEtsyConfig at a throwaway file so these tests never read, write or
+// delete the real etsy_mcp_settings.json, which holds live Etsy credentials.
+// Set before the originalEnv snapshot below so afterEach keeps restoring it.
+const settingsPath = path.join(__dirname, 'tmp-config-test-settings.json');
+process.env.ETSY_SETTINGS_PATH = settingsPath;
 
 function cleanup() {
   if (fs.existsSync(settingsPath)) {

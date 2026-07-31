@@ -2,6 +2,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { loadEtsyConfig } from '../src/config.js';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Point loadEtsyConfig at a path that does not exist, so the "no configuration"
+// assertions below hold without deleting the real etsy_mcp_settings.json.
+// Set before the originalEnv snapshot so afterEach keeps restoring it.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+process.env.ETSY_SETTINGS_PATH = path.join(__dirname, 'tmp-index-test-settings.json');
 
 // Mock environment variables for testing
 const originalEnv = { ...process.env };
@@ -43,17 +50,12 @@ describe('EtsyServer Integration Tests', () => {
       delete process.env.ETSY_SHARED_SECRET;
       delete process.env.ETSY_REFRESH_TOKEN;
 
-      // Ensure no settings file exists for this test
-      const settingsPath = path.join(__dirname, "..", "etsy_mcp_settings.json");
-      const settingsExisted = fs.existsSync(settingsPath);
-      if (settingsExisted) {
-        fs.unlinkSync(settingsPath);
-      }
-
+      // ETSY_SETTINGS_PATH (set at the top of this file) points at a file that
+      // does not exist, so no settings can be picked up here.
       expect(() => loadEtsyConfig()).toThrow(
         'ETSY_API_KEY, ETSY_SHARED_SECRET, and ETSY_REFRESH_TOKEN environment variables are required'
       );
-      
+
       // Restore original values
       if (originalApiKey) process.env.ETSY_API_KEY = originalApiKey;
       if (originalSharedSecret) process.env.ETSY_SHARED_SECRET = originalSharedSecret;

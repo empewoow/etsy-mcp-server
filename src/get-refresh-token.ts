@@ -172,8 +172,10 @@ const main = async () => {
   );
   console.log(`Scopes: ${scopes}`);
 
-  // Etsy requires a unique `state` param in the authorization request.
-  const state = Math.random().toString(36).substring(2, 15);
+  // Etsy requires a unique `state` param in the authorization request. It guards
+  // against a forged callback being accepted, so it has to be unguessable —
+  // Math.random() is not. Use the same CSPRNG as the PKCE verifier above.
+  const state = crypto.randomBytes(24).toString("base64url");
   (app.locals as AppLocals).state = state;
 
   const authUrl = `https://www.etsy.com/oauth/connect?response_type=code&client_id=${keystring}&redirect_uri=http://localhost:${port}/oauth/redirect&scope=${scopes}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;

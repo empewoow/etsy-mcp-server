@@ -14,9 +14,21 @@ import {
   tools as sellerTaxonomyTools,
   handlers as sellerTaxonomyHandlers,
 } from "./handlers/seller-taxonomy.js";
+import { tools as receiptsTools, handlers as receiptsHandlers } from "./handlers/receipts.js";
+import {
+  tools as transactionsTools,
+  handlers as transactionsHandlers,
+} from "./handlers/transactions.js";
+import { tools as ledgerTools, handlers as ledgerHandlers } from "./handlers/ledger.js";
+import { tools as reviewsTools, handlers as reviewsHandlers } from "./handlers/reviews.js";
+import {
+  tools as returnPoliciesTools,
+  handlers as returnPoliciesHandlers,
+} from "./handlers/return-policies.js";
+import { tools as scopesTools, handlers as scopesHandlers } from "./handlers/scopes.js";
 import { loadEtsyConfig } from "./config.js";
 
-const { apiKey: API_KEY, refreshToken: REFRESH_TOKEN } = loadEtsyConfig();
+const { apiKey: API_KEY, sharedSecret: SHARED_SECRET, refreshToken: REFRESH_TOKEN } = loadEtsyConfig();
 
 class EtsyServer {
   private server: Server;
@@ -59,7 +71,7 @@ class EtsyServer {
       });
       this.accessToken = response.data.access_token;
       this.axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${this.accessToken}`;
-      this.axiosInstance.defaults.headers.common["x-api-key"] = API_KEY as string;
+      this.axiosInstance.defaults.headers.common["x-api-key"] = `${API_KEY}:${SHARED_SECRET}`;
     } catch (error: unknown) {
       console.error(
         "Error refreshing access token:",
@@ -80,11 +92,27 @@ class EtsyServer {
   }
 
   private setupToolHandlers() {
-    const allTools = [...shopTools, ...listingTools, ...sellerTaxonomyTools];
+    const allTools = [
+      ...shopTools,
+      ...listingTools,
+      ...sellerTaxonomyTools,
+      ...receiptsTools,
+      ...transactionsTools,
+      ...ledgerTools,
+      ...reviewsTools,
+      ...returnPoliciesTools,
+      ...scopesTools,
+    ];
     const handlers = {
       ...shopHandlers,
       ...listingHandlers,
       ...sellerTaxonomyHandlers,
+      ...receiptsHandlers,
+      ...transactionsHandlers,
+      ...ledgerHandlers,
+      ...reviewsHandlers,
+      ...returnPoliciesHandlers,
+      ...scopesHandlers,
     } as Record<string, (args: unknown, axios: AxiosInstance) => Promise<unknown>>;
 
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({

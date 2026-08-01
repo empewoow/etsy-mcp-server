@@ -129,7 +129,21 @@ class EtsyServer {
         if (!handler) {
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
         }
-        const response = await handler(request.params.arguments, this.axiosInstance);
+        let response: unknown;
+        try {
+          response = await handler(request.params.arguments, this.axiosInstance);
+        } catch (error: unknown) {
+          // Etsy access tokens expire after an hour. ensureAccessToken only fetches one
+          // when none is cached, so without this every long-running session starts
+          // returning 401 and stays broken until the server is restarted. Refresh once
+          // and retry; anything else propagates untouched.
+          if (axios.isAxiosError(error) && error.response?.status === 401) {
+            await this.refreshAccessToken();
+            response = await handler(request.params.arguments, this.axiosInstance);
+          } else {
+            throw error;
+          }
+        }
         return {
           content: [
             {

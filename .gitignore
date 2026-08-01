@@ -3,3 +3,7 @@ build/
 *.log
 .env
 etsy_mcp_settings.json
+# One settings file per Etsy shop, selected with ETSY_SETTINGS_PATH. These hold
+# live keystrings, shared secrets and refresh tokens, so ignore the whole family.
+# etsy_mcp_settings.example.json does not match this pattern and stays tracked.
+etsy_mcp_settings_*.json

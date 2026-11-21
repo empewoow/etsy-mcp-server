@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadEtsyConfig, saveRefreshToken } from '../src/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -13,8 +13,10 @@ const settingsPath = path.join(__dirname, 'tmp-config-test-settings.json');
 process.env.ETSY_SETTINGS_PATH = settingsPath;
 
 function cleanup() {
-  if (fs.existsSync(settingsPath)) {
-    fs.unlinkSync(settingsPath);
+  for (const file of [settingsPath, `${settingsPath}.new`]) {
+    if (fs.existsSync(file)) {
+      fs.unlinkSync(file);
+    }
   }
 }
 
@@ -123,5 +125,30 @@ describe('saveRefreshToken', () => {
     saveRefreshToken('fresh');
 
     expect(fs.existsSync(`${settingsPath}.new`)).toBe(false);
+  });
+
+  it('removes the temporary file when the write cannot be completed', () => {
+    const data = {
+      'etsy-mcp-server': { keystring: 'k', sharedSecret: 's', refreshToken: 'old' },
+    };
+    fs.writeFileSync(settingsPath, JSON.stringify(data));
+    delete process.env.ETSY_REFRESH_TOKEN;
+
+    const rename = vi.spyOn(fs, 'renameSync').mockImplementation(() => {
+      throw new Error('rename failed');
+    });
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      expect(saveRefreshToken('fresh')).toBe(false);
+      // The temp file held the same live credentials as the real one.
+      expect(fs.existsSync(`${settingsPath}.new`)).toBe(false);
+      // And the original is left as it was, not half written.
+      const stored = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'))['etsy-mcp-server'];
+      expect(stored.refreshToken).toBe('old');
+    } finally {
+      rename.mockRestore();
+      logged.mockRestore();
+    }
   });
 });

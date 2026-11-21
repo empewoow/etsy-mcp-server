@@ -73,6 +73,8 @@ class EtsyServer {
         refresh_token: this.refreshToken,
       });
       this.accessToken = response.data.access_token;
+      this.axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${this.accessToken}`;
+      this.axiosInstance.defaults.headers.common["x-api-key"] = `${API_KEY}:${SHARED_SECRET}`;
 
       // Hold on to the rotated refresh token, in memory and on disk. Without
       // this the stored token expires 90 days after the last manual login and
@@ -82,8 +84,6 @@ class EtsyServer {
         this.refreshToken = rotatedRefreshToken;
         saveRefreshToken(rotatedRefreshToken);
       }
-      this.axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${this.accessToken}`;
-      this.axiosInstance.defaults.headers.common["x-api-key"] = `${API_KEY}:${SHARED_SECRET}`;
     } catch (error: unknown) {
       console.error(
         "Error refreshing access token:",

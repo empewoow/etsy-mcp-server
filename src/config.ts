@@ -87,8 +87,18 @@ export function saveRefreshToken(refreshToken: string): boolean {
     // Write a sibling file and rename it over the original, so an interrupted
     // write cannot leave the only copy of the credentials truncated.
     const tempPath = `${settingsPath}.new`;
-    fs.writeFileSync(tempPath, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
-    fs.renameSync(tempPath, settingsPath);
+    try {
+      // Drop any leftover first, so the 0600 mode is applied to a file this
+      // call creates rather than silently kept from an older, laxer one.
+      fs.rmSync(tempPath, { force: true });
+      fs.writeFileSync(tempPath, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
+      fs.renameSync(tempPath, settingsPath);
+    } catch (error: unknown) {
+      // Otherwise a half-finished write sits there holding a live keystring,
+      // shared secret and refresh token.
+      fs.rmSync(tempPath, { force: true });
+      throw error;
+    }
     return true;
   } catch (error: unknown) {
     // Not fatal: the token held in memory still works for this process. Say so

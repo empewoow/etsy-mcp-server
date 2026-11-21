@@ -8,6 +8,17 @@ export interface EtsyConfig {
   refreshToken: string;
 }
 
+// ETSY_SETTINGS_PATH lets the test suite point at a throwaway file instead of
+// the real one. Without it, tests that assert "no settings file present" have
+// to delete the user's actual credentials to pass. It is also how a single
+// install serves two shops, each with its own credentials file.
+export function resolveSettingsPath(): string {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  return process.env.ETSY_SETTINGS_PATH
+    ? path.resolve(process.env.ETSY_SETTINGS_PATH)
+    : path.join(__dirname, "..", "etsy_mcp_settings.json");
+}
+
 export function loadEtsyConfig(): EtsyConfig {
   // 1. Prefer values supplied via environment variables
   let apiKey: string | undefined = process.env.ETSY_API_KEY;
@@ -17,13 +28,7 @@ export function loadEtsyConfig(): EtsyConfig {
   // 2. When any value is missing, attempt to read from the optional settings file
   if (!apiKey || !sharedSecret || !refreshToken) {
     try {
-      const __dirname = path.dirname(fileURLToPath(import.meta.url));
-      // ETSY_SETTINGS_PATH lets the test suite point at a throwaway file instead of
-      // the real one. Without it, tests that assert "no settings file present" have
-      // to delete the user's actual credentials to pass.
-      const settingsPath = process.env.ETSY_SETTINGS_PATH
-        ? path.resolve(process.env.ETSY_SETTINGS_PATH)
-        : path.join(__dirname, "..", "etsy_mcp_settings.json");
+      const settingsPath = resolveSettingsPath();
       if (fs.existsSync(settingsPath)) {
         const raw = fs.readFileSync(settingsPath, "utf-8");
         const cfg = JSON.parse(raw)["etsy-mcp-server"] ?? {};
@@ -49,4 +54,51 @@ export function loadEtsyConfig(): EtsyConfig {
     sharedSecret,
     refreshToken,
   };
+}
+
+// Etsy rotates the refresh token on every access-token refresh, and each new one
+// is good for another 90 days. Storing it is what keeps this server working
+// unattended: a token that is never replaced expires 90 days after the last
+// manual login, no matter how often it is used, and from then on every call
+// fails with "Failed to refresh Etsy access token" until someone walks through
+// the OAuth flow again.
+//
+// Returns true when the new token was stored. A token supplied through
+// ETSY_REFRESH_TOKEN is left alone, because loadEtsyConfig lets the environment
+// win and writing the file would not change what the next start uses.
+export function saveRefreshToken(refreshToken: string): boolean {
+  if (process.env.ETSY_REFRESH_TOKEN) {
+    return false;
+  }
+
+  const settingsPath = resolveSettingsPath();
+
+  try {
+    if (!fs.existsSync(settingsPath)) {
+      return false;
+    }
+
+    const data = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+    if (!data["etsy-mcp-server"]) {
+      data["etsy-mcp-server"] = {};
+    }
+    data["etsy-mcp-server"].refreshToken = refreshToken;
+
+    // Write a sibling file and rename it over the original, so an interrupted
+    // write cannot leave the only copy of the credentials truncated.
+    const tempPath = `${settingsPath}.new`;
+    fs.writeFileSync(tempPath, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
+    fs.renameSync(tempPath, settingsPath);
+    return true;
+  } catch (error: unknown) {
+    // Not fatal: the token held in memory still works for this process. Say so
+    // anyway, because the next start falls back to the stale one on disk.
+    console.error(
+      "Could not store the rotated Etsy refresh token in",
+      settingsPath,
+      "-",
+      error instanceof Error ? error.message : String(error)
+    );
+    return false;
+  }
 }

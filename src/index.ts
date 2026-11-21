@@ -26,7 +26,7 @@ import {
   handlers as returnPoliciesHandlers,
 } from "./handlers/return-policies.js";
 import { tools as scopesTools, handlers as scopesHandlers } from "./handlers/scopes.js";
-import { loadEtsyConfig } from "./config.js";
+import { loadEtsyConfig, saveRefreshToken } from "./config.js";
 
 const { apiKey: API_KEY, sharedSecret: SHARED_SECRET, refreshToken: REFRESH_TOKEN } = loadEtsyConfig();
 
@@ -34,6 +34,9 @@ class EtsyServer {
   private server: Server;
   private axiosInstance: AxiosInstance;
   private accessToken: string | null = null;
+  // Etsy hands back a new refresh token on every refresh, so the one in use
+  // changes while the server runs and is not the value the module loaded.
+  private refreshToken: string = REFRESH_TOKEN;
 
   constructor() {
     this.server = new Server(
@@ -67,9 +70,18 @@ class EtsyServer {
       const response = await axios.post("https://api.etsy.com/v3/public/oauth/token", {
         grant_type: "refresh_token",
         client_id: API_KEY,
-        refresh_token: REFRESH_TOKEN,
+        refresh_token: this.refreshToken,
       });
       this.accessToken = response.data.access_token;
+
+      // Hold on to the rotated refresh token, in memory and on disk. Without
+      // this the stored token expires 90 days after the last manual login and
+      // every call fails from then on. See saveRefreshToken.
+      const rotatedRefreshToken: string | undefined = response.data.refresh_token;
+      if (rotatedRefreshToken && rotatedRefreshToken !== this.refreshToken) {
+        this.refreshToken = rotatedRefreshToken;
+        saveRefreshToken(rotatedRefreshToken);
+      }
       this.axiosInstance.defaults.headers.common["Authorization"] = `Bearer ${this.accessToken}`;
       this.axiosInstance.defaults.headers.common["x-api-key"] = `${API_KEY}:${SHARED_SECRET}`;
     } catch (error: unknown) {
